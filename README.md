@@ -51,9 +51,9 @@ Commit `.claude-suggestions/` if you want your team to see pending and rejected 
 
 ## The reviewer
 
-Each review runs `claude -p` in the project directory, with Claude Sonnet by default, on your own Claude account or API key, so it counts toward your usage. It's [limited on purpose](amber.lua#L252-L269).
+Each review runs `claude -p` in the project directory, with Claude Sonnet by default, on your own Claude account or API key, so it counts toward your usage. It's [limited on purpose](amber.lua#L193-L214).
 
-To use another model, change the default on [this line of `amber.lua`](amber.lua#L15), for example to `"claude-haiku-4-5"`, then run **Disable Amber** and **Enable Amber** in Rex so it takes effect.
+To use another model, change the default on [this line of `amber.lua`](amber.lua#L10), for example to `"claude-haiku-4-5"`, then run **Disable Amber** and **Enable Amber** in Rex so it takes effect.
 
 ## Limitations
 

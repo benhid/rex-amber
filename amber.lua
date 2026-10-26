@@ -5,42 +5,45 @@
 --
 -- Only projects whose directory has a .claude/CLAUDE.md take part.
 --
---   rex do --all amber.lua [idle=600] [model=claude-sonnet-5-5]
+--   rex do --all amber.lua [model=claude-sonnet-5-5] [idle=600]
 
-local HOME = os.getenv("HOME")
-local AMBER_DIR = (os.getenv("XDG_CONFIG_HOME") or (HOME .. "/.config")) .. "/rex/amber"
-local CLAUDE_DIR = os.getenv("CLAUDE_CONFIG_DIR") or (HOME .. "/.claude")
-local SKILL_TEMPLATE_PATH = AMBER_DIR .. "/review-suggestions.md"
-local REVIEW_PROMPT_PATH = AMBER_DIR .. "/review-prompt.md"
 local MODEL = rex.args.model or "claude-sonnet-5-5"
 local IDLE_SECONDS = tonumber(rex.args.idle) or 600
 local REVIEW_TIMEOUT_SECONDS = 900
--- A long backlog is reviewed in parts, one per idle period, so no single
--- review gets too big to finish.
+-- A long backlog is reviewed in parts, one per idle period, so no review gets
+-- too big to finish.
 local MAX_READ_BYTES = 16 * 1024 * 1024
 local MAX_CONVERSATION_BYTES = 200 * 1024
--- A part that keeps failing is skipped, so it can't be retried forever.
+-- A part that keeps failing is skipped instead of retried forever.
 local MAX_FAILURES = 3
 
-local idle_timers = {}  -- block_id -> timer
+local HOME = os.getenv("HOME")
+local AMBER_DIR = (os.getenv("XDG_CONFIG_HOME") or HOME .. "/.config") .. "/rex/amber"
+local CLAUDE_DIR = os.getenv("CLAUDE_CONFIG_DIR") or HOME .. "/.claude"
+local REVIEW_PROMPT_PATH = AMBER_DIR .. "/review-prompt.md"
+local SKILL_TEMPLATE_PATH = AMBER_DIR .. "/review-suggestions.md"
 
--- Files ----------------------------------------------------------------------
+local idle_timers = {}  -- block id -> timer
+-- One review at a time. Anything that triggers a review meanwhile is skipped:
+-- its conversation is still unreviewed, so a later review picks it up.
+local reviewing = false
+
+-- Files -----------------------------------------------------------------------
 
 local function read_file(path)
-  local file = io.open(path)
+  local file = io.open(path, "rb")
   if not file then return nil end
   local text = file:read("*a")
   file:close()
   return text
 end
 
--- Written next to the target and renamed over it, so it's never left half written.
+-- Written next to the target and renamed over it, so it's never half written.
 local function write_file(path, text)
-  local temp = path .. ".tmp"
-  local file = assert(io.open(temp, "w"))
+  local file = assert(io.open(path .. ".tmp", "wb"))
   file:write(text)
   file:close()
-  assert(os.rename(temp, path))
+  assert(os.rename(path .. ".tmp", path))
 end
 
 local function exists(path)
@@ -64,13 +67,13 @@ end
 
 local function file_hash(path)
   local result = rex.exec({ "shasum", "-a", "256", path })
-  return result and result.ok and result.stdout:match("^(%x+)") or nil
+  return result and result.ok and result.stdout:match("^%x+") or nil
 end
 
--- Progress ---------------------------------------------------------------------
+-- Progress --------------------------------------------------------------------
 
--- Each project keeps how many transcript bytes of each session were reviewed,
--- failed attempts at the next part, and the CLAUDE.md it last audited.
+-- Per project: how many transcript bytes of each session were reviewed, failed
+-- attempts at the next part, and the hash of the CLAUDE.md last audited.
 local function progress_path(cwd)
   return cwd .. "/.claude-suggestions/.progress.json"
 end
@@ -83,53 +86,45 @@ local function read_progress(cwd)
   return progress
 end
 
-local function save_progress(cwd, progress)
+-- Reads the progress again before changing it, since a review takes minutes.
+local function update_progress(cwd, change)
+  local progress = read_progress(cwd)
+  change(progress)
   if next(progress.failures) == nil then progress.failures = nil end
   rex.exec({ "mkdir", "-p", cwd .. "/.claude-suggestions" })
   write_file(progress_path(cwd), rex.json.encode(progress, { indent = true }))
 end
 
--- Claude Code ----------------------------------------------------------------
+-- Claude Code -----------------------------------------------------------------
 
--- Claude Code keeps <config>/sessions/<pid>.json with the session id and cwd.
+-- The session Claude Code runs as `pid`, from <config>/sessions/<pid>.json, if
+-- its project takes part.
 local function claude_session(pid)
   local path = string.format("%s/sessions/%d.json", CLAUDE_DIR, pid)
   local session = rex.json.decode(read_file(path) or "")
-  if type(session) == "table" and session.sessionId and session.cwd then return session end
+  if type(session) ~= "table" or not session.sessionId or not session.cwd then return nil end
+  if not exists(session.cwd .. "/.claude/CLAUDE.md") then return nil end
+  return { id = session.sessionId, cwd = session.cwd }
 end
 
 -- Transcripts live in <config>/projects/<project>/<session>.jsonl, next to the
 -- project's private memory. The folder is usually the cwd with every
 -- non-alphanumeric character as "-", but long or non-ASCII paths are named
 -- differently, so the session id, which is unique, is what finds it.
-local function find_transcript(cwd, session_id)
-  local guess = string.format("%s/projects/%s/%s.jsonl", CLAUDE_DIR, (cwd:gsub("[^%w]", "-")), session_id)
+local function find_transcript(session)
+  local folder = session.cwd:gsub("[^%w]", "-")
+  local guess = string.format("%s/projects/%s/%s.jsonl", CLAUDE_DIR, folder, session.id)
   if exists(guess) then return guess end
   local result = rex.exec({ "find", CLAUDE_DIR .. "/projects", "-mindepth", "2", "-maxdepth", "2",
-    "-name", session_id .. ".jsonl" })
+    "-name", session.id .. ".jsonl" })
   return result and result.ok and result.stdout:match("[^\n]+") or nil
 end
 
--- Suggestions ----------------------------------------------------------------
-
--- The skill is Amber's own file, so it's refreshed whenever the template changes.
-local function install_skill(cwd)
-  local dir = cwd .. "/.claude/skills/review-suggestions"
-  local template = read_file(SKILL_TEMPLATE_PATH)
-  if not template or read_file(dir .. "/SKILL.md") == template then return end
-  rex.exec({ "mkdir", "-p", dir })
-  write_file(dir .. "/SKILL.md", template)
-end
-
--- One review at a time. Anything that triggers a review meanwhile is skipped:
--- its conversation is still unreviewed, so the next review picks it up.
-local reviewing = false
-
 -- Keeps what the person said, what the agent said and did, and tool errors.
 -- Injected context, meta entries and compaction summaries are left out.
--- Every transcript line gives exactly one output line, a JSON string with its
--- entries, so the outputs can be matched back to transcript bytes. Anything
--- unexpected in a line drops it instead of failing the whole run.
+-- Each transcript line gives exactly one output line, a JSON string with its
+-- entries, so outputs can be matched back to transcript bytes. A line with
+-- anything unexpected is dropped instead of failing the whole run.
 local CONVERSATION_FILTER = [[
 [ (fromjson | select((.type == "user" or .type == "assistant") and (.isMeta | not) and (.isCompactSummary | not))
   | .type as $who | .message.content
@@ -140,30 +135,29 @@ local CONVERSATION_FILTER = [[
       else empty end
     end)? | tojson ] | join("\n")]]
 
--- The part of the transcript after `from`, as compact JSON lines, and where
--- that part ends. Only whole lines are read, and at most MAX_CONVERSATION_BYTES
--- of conversation, so a long backlog takes several reviews.
-local function new_conversation(transcript, from)
+-- The conversation in the transcript after byte `from`, as JSON lines, and the
+-- byte where it ends. Only whole lines are read, and at most
+-- MAX_CONVERSATION_BYTES of conversation, so a long backlog takes several reviews.
+local function read_conversation(transcript, from)
   local file = io.open(transcript, "rb")
   if not file then return nil end
   file:seek("set", from)
   local raw = file:read(MAX_READ_BYTES) or ""
   file:close()
 
-  local from_end = raw:reverse():find("\n", 1, true)
-  if not from_end then
+  local last_newline = raw:reverse():find("\n", 1, true)
+  if not last_newline then
     -- A line longer than a whole read is skipped: what's left of it won't parse.
     if #raw == MAX_READ_BYTES then return "", from + #raw end
     return "", from  -- the line is still being written
   end
-  raw = raw:sub(1, #raw - from_end + 1)
+  raw = raw:sub(1, #raw - last_newline + 1)
 
   local result = rex.exec({ "jq", "-cR", CONVERSATION_FILTER }, { stdin = raw, timeout = 60 })
   if not (result and result.ok) then return nil end
 
   -- Walks the transcript lines and their outputs side by side.
-  local output = result.stdout
-  local parts, size, ends = {}, 0, from
+  local output, parts, size, to = result.stdout, {}, 0, from
   local line_start, output_start = 1, 1
   while line_start <= #raw do
     local line_end = raw:find("\n", line_start, true)
@@ -176,77 +170,28 @@ local function new_conversation(transcript, from)
       table.insert(parts, entries:sub(1, MAX_CONVERSATION_BYTES))
       size = size + #entries + 1
     end
-    ends = from + line_end
+    to = from + line_end
     line_start, output_start = line_end + 1, output_end + 1
   end
-  return table.concat(parts, "\n"), ends
+  return table.concat(parts, "\n"), to
 end
 
-local function review(pane)
-  if reviewing then return end
-  local id = pane.session_id
-  local transcript = find_transcript(pane.cwd, id)
-  local size = transcript and file_size(transcript)
-  if not size then return end
-  local progress = read_progress(pane.cwd)
-  local reviewed = progress.sessions[id] or 0
-  if size < reviewed then reviewed = 0 end  -- the transcript was rewritten
-  if size == reviewed then return end
+-- Review ----------------------------------------------------------------------
 
-  -- Audit CLAUDE.md only when it changed since the last audit.
-  local claude_md_hash = file_hash(pane.cwd .. "/.claude/CLAUDE.md")
-  local audit = claude_md_hash ~= progress.audited
+-- The skill is Amber's own file, so it's refreshed whenever the template changes.
+local function install_skill(cwd)
+  local dir = cwd .. "/.claude/skills/review-suggestions"
+  local template = read_file(SKILL_TEMPLATE_PATH)
+  if not template or read_file(dir .. "/SKILL.md") == template then return end
+  rex.exec({ "mkdir", "-p", dir })
+  write_file(dir .. "/SKILL.md", template)
+end
 
-  -- The extraction happens here, not in the reviewer, so the reviewer needs no shell.
-  local conversation, reviewed_to = new_conversation(transcript, reviewed)
-  if not conversation then
-    rex.log("warn", "couldn't read the transcript in " .. pane.cwd)
-    return
-  end
-
-  local function save()
-    progress = read_progress(pane.cwd)
-    progress.sessions[id] = reviewed_to
-    progress.failures[id] = nil
-    if audit then progress.audited = claude_md_hash end
-    save_progress(pane.cwd, progress)
-  end
-
-  local function failed()
-    progress = read_progress(pane.cwd)
-    local failures = (progress.failures[id] or 0) + 1
-    if failures >= MAX_FAILURES then
-      rex.log("warn", string.format("skipping part of session %s in %s after %d failed reviews",
-        id, pane.cwd, failures))
-      progress.sessions[id] = reviewed_to
-      failures = nil
-    end
-    progress.failures[id] = failures
-    save_progress(pane.cwd, progress)
-  end
-
-  if conversation:match("^%s*$") and not audit then
-    if reviewed_to ~= reviewed then save() end
-    return
-  end
-
-  local memory = transcript:match("^(.*)/") .. "/memory"
-  local has_memory = is_dir(memory)
-
-  local input = table.concat({
-    "Session: " .. id,
-    "Now: " .. os.date("!%Y-%m-%dT%H:%M:%SZ"),
-    "Memory: " .. (has_memory and memory or "none"),
-    "Audit CLAUDE.md: " .. (audit and "yes" or "no"),
-    "",
-    "# New part of the conversation",
-    "",
-    conversation,
-  }, "\n")
-
-  -- Started in the background so the script keeps handling events meanwhile.
+-- Runs the reviewer in the background, so events keep being handled, and calls
+-- `finished(ok)` when it exits, unless the project is gone by then.
+local function run_reviewer(cwd, input, memory, finished)
   -- The reviewer has no shell. Outside the project it can only read the memory
-  -- folder, it can't read secrets inside it, and it can only write inside
+  -- folder, it can't read secrets, and it can only write inside
   -- .claude-suggestions/, except Amber's progress. Claude Code never lets it
   -- write inside .claude/.
   local args = {
@@ -263,14 +208,14 @@ local function review(pane)
     "--no-session-persistence",
     "--system-prompt-file", REVIEW_PROMPT_PATH,
   }
-  if has_memory then
+  if memory then
     table.insert(args, "--add-dir")
     table.insert(args, memory)
   end
 
   local errors = ""
   local process, err = rex.exec.start(args, {
-    cwd = pane.cwd,
+    cwd = cwd,
     stdin = true,
     detach = true,
     timeout = REVIEW_TIMEOUT_SECONDS,
@@ -290,51 +235,106 @@ local function review(pane)
     if process:running() then return end
     poll:cancel()
     reviewing = false
-    -- The project may have moved or gone meanwhile; don't recreate it.
-    if not exists(pane.cwd .. "/.claude/CLAUDE.md") then return end
-    -- It has exited, so wait() returns at once. wait(0) would report a timeout.
+    -- Once it has exited, wait() returns at once. wait(0) would report a timeout.
     local result = process:wait()
-    if not (result and result.ok) then
+    local ok = result and result.ok
+    if not ok then
       rex.log("warn", string.format("review failed in %s (exit %s): %s",
-        pane.cwd, tostring(result and result.code), errors))
-      failed()
-      return
+        cwd, tostring(result and result.code), errors))
     end
-    install_skill(pane.cwd)
-    save()
+    -- If the project moved or was deleted meanwhile, don't recreate it.
+    if exists(cwd .. "/.claude/CLAUDE.md") then finished(ok) end
   end)
 end
 
--- Events ---------------------------------------------------------------------
+local function review(session)
+  if reviewing then return end
+  local cwd, id = session.cwd, session.id
 
-local function eligible_pane(pid)
-  local session = claude_session(pid)
-  if not session or not exists(session.cwd .. "/.claude/CLAUDE.md") then return nil end
-  return { session_id = session.sessionId, cwd = session.cwd }
+  local transcript = find_transcript(session)
+  local size = transcript and file_size(transcript)
+  if not size then return end
+  local progress = read_progress(cwd)
+  local from = progress.sessions[id] or 0
+  if size < from then from = 0 end  -- the transcript was rewritten
+  if size == from then return end
+
+  -- The extraction happens here, not in the reviewer, so it needs no shell.
+  local conversation, to = read_conversation(transcript, from)
+  if not conversation then
+    rex.log("warn", "couldn't read the transcript in " .. cwd)
+    return
+  end
+
+  -- CLAUDE.md is audited only when it changed since the last audit.
+  local claude_md_hash = file_hash(cwd .. "/.claude/CLAUDE.md")
+  local audit = claude_md_hash ~= progress.audited
+
+  local function reviewed(progress)
+    progress.sessions[id] = to
+    progress.failures[id] = nil
+    if audit then progress.audited = claude_md_hash end
+  end
+
+  local function failed(progress)
+    local failures = (progress.failures[id] or 0) + 1
+    progress.failures[id] = failures
+    if failures < MAX_FAILURES then return end
+    rex.log("warn", string.format("skipping part of session %s in %s after %d failed reviews",
+      id, cwd, failures))
+    progress.sessions[id] = to
+    progress.failures[id] = nil
+  end
+
+  if conversation == "" and not audit then
+    if to ~= from then update_progress(cwd, reviewed) end
+    return
+  end
+
+  local memory = transcript:match("^(.*)/") .. "/memory"
+  if not is_dir(memory) then memory = nil end
+
+  local input = table.concat({
+    "Session: " .. id,
+    "Now: " .. os.date("!%Y-%m-%dT%H:%M:%SZ"),
+    "Memory: " .. (memory or "none"),
+    "Audit CLAUDE.md: " .. (audit and "yes" or "no"),
+    "",
+    "# New part of the conversation",
+    "",
+    conversation,
+  }, "\n")
+
+  run_reviewer(cwd, input, memory, function(ok)
+    if ok then install_skill(cwd) end
+    update_progress(cwd, ok and reviewed or failed)
+  end)
 end
 
-local function cancel_timer(block)
-  if idle_timers[block] then idle_timers[block]:cancel() end
-  idle_timers[block] = nil
+-- Events ----------------------------------------------------------------------
+
+local function cancel_timer(block_id)
+  if idle_timers[block_id] then idle_timers[block_id]:cancel() end
+  idle_timers[block_id] = nil
 end
 
-rex.on("terminal.program_status_changed", function(ctx, ev)
-  local record = ev.record
-  if not record or record.effective_app ~= "claude-code" or not record.owner then return end
+rex.on("terminal.program_status_changed", function(ctx, event)
+  local record = event.record
+  if not (record and record.owner and record.effective_app == "claude-code") then return end
 
   cancel_timer(ctx.block_id)
-  -- A long turn isn't idleness: only count from when the agent stops working.
+  -- A long turn isn't idleness: the wait starts when the agent stops working.
   if record.state == "working" then return end
 
-  -- The session is looked up when the timer fires, so it's the current one.
   local pid = record.owner.pid
   idle_timers[ctx.block_id] = rex.after(IDLE_SECONDS, function()
     idle_timers[ctx.block_id] = nil
-    local pane = eligible_pane(pid)
-    if pane then review(pane) end
+    -- Looked up now rather than when the wait started, so it's the current session.
+    local session = claude_session(pid)
+    if session then review(session) end
   end)
 end)
 
-rex.on("block_closed", function(ctx, ev)
-  cancel_timer(ev.block_id)
+rex.on("block_closed", function(ctx, event)
+  cancel_timer(event.block_id)
 end)
