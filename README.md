@@ -1,6 +1,6 @@
 # Amber
 
-A [Rex](https://www.superlogical.com/rex) extension that reviews your Claude Code sessions when they go idle and suggests changes to your project's instructions.
+Built for [Rex](https://www.superlogical.com/rex), Amber reviews your Claude Code sessions when they go idle and suggests changes to your project's instructions.
 
 > [!NOTE]
 > Amber is in beta. It evolves as Rex does, and some things can still go wrong.
