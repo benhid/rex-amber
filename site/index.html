@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amber: your CLAUDE.md learns from every session</title>
+<meta name="description" content="Amber is a Rex extension for Claude Code. When you step away, it reads what happened in your session and suggests what's worth keeping in your CLAUDE.md.">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#fbf6ec">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Amber: your CLAUDE.md learns from every session">
+<meta property="og:description" content="A Rex extension for Claude Code. When you step away, it suggests what's worth keeping in your CLAUDE.md.">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<script>document.documentElement.classList.add("js")</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://api.fontshare.com">
+<link rel="preconnect" href="https://cdn.fontshare.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f%5B%5D=erode@500,401,501&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&family=JetBrains+Mono:wght@400;500&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="amber.css">
+</head>
+<body id="top">
+
+<nav class="relative z-10" aria-label="Main">
+  <div class="mx-auto flex max-w-280 items-center justify-between gap-6 px-5 py-6 md:px-8">
+    <a class="logo flex items-center no-underline" href="#top" aria-label="Amber">
+      <canvas id="logo-fx" class="-my-1.75 -ml-1.75 hidden in-[.fx-on]:block" aria-hidden="true"></canvas>
+      <span class="gem-fallback h-7.5 w-7 rounded-[46%_54%_50%_48%/56%_48%_52%_44%] bg-[radial-gradient(circle_at_34%_30%,oklch(95%_.1_90),oklch(80%_.16_75)_30%,oklch(58%_.16_50)_75%,oklch(42%_.12_40))] in-[.fx-on]:hidden" aria-hidden="true"></span>
+      <span class="word ml-2 font-display text-[1.6rem] leading-none font-medium tracking-[-.03em] italic in-[.fx-on]:hidden">amber</span>
+    </a>
+    <div class="flex items-center gap-7 text-[.92rem] text-ink-soft">
+      <span class="hidden md:inline">A <a class="font-medium whitespace-nowrap text-ink no-underline hover:text-rust" href="https://www.superlogical.com/rex" target="_blank" rel="noopener"><img class="mr-1.25 inline-block size-3.75 rounded-sm align-[-0.16em] ring-1 ring-rule" src="rex.png" alt="" width="16" height="16">Rex</a> extension for Claude Code</span>
+      <a class="font-medium text-ink no-underline transition-colors hover:text-rust" href="#install">Install</a>
+    </div>
+  </div>
+</nav>
+
+<main class="relative z-10">
+
+  <!-- Hero -->
+  <header class="px-5 pt-[clamp(48px,9vw,120px)] text-center md:px-8">
+    <h1 class="mx-auto max-w-[17ch] font-display text-[clamp(2.7rem,1.5rem+4.2vw,4.6rem)] leading-none font-medium tracking-[-.035em] text-balance">Your CLAUDE.md learns from <em class="text-moss">every</em> session.</h1>
+    <p class="mx-auto mt-7 max-w-[40ch] text-[clamp(1.06rem,1rem+.3vw,1.22rem)] leading-relaxed text-pretty text-ink-soft">When you step away, Amber reads what happened and marks up your CLAUDE.md with what's worth keeping. You decide what stays.</p>
+    <div class="mt-10 flex flex-wrap items-center justify-center gap-x-7 gap-y-4">
+      <a class="rounded-full bg-ink px-6 py-3.5 font-medium leading-none text-paper no-underline shadow-lift transition duration-300 ease-out-expo hover:-translate-y-0.5" href="#install">Turn it on in Rex</a>
+      <a class="font-medium leading-none text-ink no-underline transition-colors hover:text-rust" href="#how">See how it works</a>
+    </div>
+
+    <!-- The stage: amber resin behind a session and the CLAUDE.md it marks up -->
+    <figure class="relative mx-auto mt-[clamp(56px,8vw,96px)] max-w-280 text-left">
+      <figcaption class="sr-only">A Claude Code session where you correct the agent: no npm, this project uses pnpm. Next to it, the project's CLAUDE.md, marked up by Amber in pencil: npm crossed out and replaced with pnpm, a rule about a script that no longer exists crossed out, and a new line saying tests live in spec/.</figcaption>
+      <div id="stage" class="relative overflow-hidden rounded-3xl resin-bg px-4 py-6 sm:px-8 sm:py-10 lg:aspect-video lg:rounded-4xl lg:p-0">
+        <canvas class="resin absolute inset-0 size-full" aria-hidden="true"></canvas>
+
+        <!-- A Claude Code session in Rex -->
+        <div aria-hidden="true" class="relative overflow-hidden rounded-xl bg-terminal shadow-window lg:absolute lg:top-[9%] lg:left-[5.5%] lg:w-[54%]">
+          <div class="window-bar">
+            <span class="window-dot bg-[#ff5f57]"></span><span class="window-dot bg-[#febc2e]"></span><span class="window-dot bg-[#28c840]"></span>
+            <span class="flex-1 pr-12 text-center font-sans text-[.72rem] text-white/45">my-app</span>
+          </div>
+<div class="px-4 pt-2 pb-4 font-mono text-[.74rem] leading-[1.75] text-white/80 md:text-[.78rem]">
+            <p class="-mx-1 rounded bg-white/7 px-1 text-white/70"><span class="text-white/40">&gt;</span> how do I run the tests?</p>
+            <p class="mt-2.5"><span class="text-[#4ade80]">⏺</span> <span class="font-medium text-white">Bash</span><span class="text-white/55">(npm test)</span></p>
+            <p class="pl-4 text-white/45">⎿&nbsp; ✓ 4 tests passed</p>
+            <p class="mt-2.5"><span class="text-white/60">⏺</span> Tests pass. Run them with <span class="text-[oklch(78%_.1_250)]">npm test</span>.</p>
+            <p class="-mx-1 mt-2.5 rounded bg-white/7 px-1 text-white/70"><span class="text-white/40">&gt;</span> No, we use pnpm here. Never npm.</p>
+            <p class="mt-2.5"><span class="text-white/60">⏺</span> Got it: <span class="text-[oklch(78%_.1_250)]">pnpm test</span> from now on.</p>
+            <div class="mt-4 rounded-md border border-white/20 px-2.5 py-1.5 text-white/35"><span class="text-white/50">&gt;</span> <span class="inline-block h-[1.05em] w-[.55em] translate-y-[2px] bg-white/60"></span></div>
+            <div class="mt-1.5 px-1 text-[.68rem] text-white/35">⏵⏵ accept edits on</div>
+          </div>
+        </div>
+
+        <!-- The CLAUDE.md, marked up -->
+        <div id="proof" class="relative -mt-4 ml-auto w-[96%] overflow-hidden rounded-xl bg-card shadow-float lg:absolute lg:top-[37%] lg:right-[5.5%] lg:mt-0 lg:w-[52%]" aria-hidden="true">
+          <div class="window-bar border-b border-rule">
+            <span class="window-dot bg-rule"></span><span class="window-dot bg-rule"></span><span class="window-dot bg-rule"></span>
+            <span class="flex-1 pr-12 text-center font-mono text-[.7rem] text-ink-faint">.claude/CLAUDE.md</span>
+          </div>
+          <div class="relative grid items-center px-6 pt-5 pb-7 md:grid-cols-[minmax(0,1fr)_172px] md:gap-x-8 md:px-7">
+            <span class="absolute inset-y-0 right-54 hidden w-px bg-rust/25 md:block" aria-hidden="true"></span>
+            <div class="mb-1 flex items-baseline justify-between gap-4 font-display text-[1.35rem] leading-[1.2] font-medium tracking-[-.02em]">my-app</div>
+            <div class="hidden md:block"><span class="write t0 inline-block -rotate-3 font-hand text-[1.2rem] leading-none whitespace-nowrap text-rust">marked up by Amber</span></div>
+            <div class="pt-4 pb-1 text-[.66rem] leading-none font-semibold tracking-[.14em] text-ink-faint uppercase">Commands</div><div class="hidden md:block"></div>
+
+            <div class="d-li"><span id="m1">Run the tests with <code><span class="mark strike">npm<svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><path class="pencil t1" pathLength="1" d="M1 8 C 30 4, 60 9, 99 4"/></svg><span class="write t2 absolute bottom-[78%] left-1/2 -translate-x-1/2 -rotate-4 font-hand text-[1.5rem] leading-none whitespace-nowrap text-rust">pnpm</span></span> test</code></span></div>
+            <div class="note write t3">you corrected this</div>
+
+            <div class="d-li text-ink-faint"><span class="mark strike" id="m2">Run end-to-end tests with <code>npm run e2e</code><svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><path class="pencil t4" pathLength="1" d="M1 7 C 25 9, 70 3, 99 6"/></svg></span></div>
+            <div class="note write t5">this script is gone</div>
+
+            <div class="pt-4 pb-1 text-[.66rem] leading-none font-semibold tracking-[.14em] text-ink-faint uppercase">Code</div><div class="hidden md:block"></div>
+            <div class="d-li">Use ES modules</div><div class="hidden md:block"></div>
+            <div class="d-li new"><span class="mark" id="m3"><span class="write t6 inline-block font-hand text-[1.55rem] leading-[1.6] text-moss">Tests live in spec/, not test/</span></span></div>
+            <div class="note write t7 text-moss">it went looking 3 times</div>
+          </div>
+        </div>
+      </div>
+    </figure>
+  </header>
+
+  <!-- How it works: one sequence, read as a single sentence and a timeline -->
+  <section id="how" class="px-5 pt-[clamp(120px,16vw,200px)] md:px-8">
+    <div class="mx-auto max-w-245">
+      <h2 class="text-center font-display text-[clamp(2.1rem,1.4rem+2.6vw,3.5rem)] leading-[1.08] font-medium tracking-[-.03em]">
+        <span class="block">You work as usual.</span>
+        <span class="block">You step away.</span>
+        <span class="block text-moss italic">It takes notes.</span>
+      </h2>
+
+      <div class="reveal relative mt-16 md:mt-20">
+      <!-- the thread joining the three moments -->
+      <span class="absolute top-1.75 right-[16.6%] left-[16.6%] hidden border-t border-dashed border-ink/20 md:block" aria-hidden="true"></span>
+      <ol class="relative grid gap-10 md:grid-cols-3 md:gap-8">
+        <li class="relative pl-9 md:pl-0 md:text-center">
+          <span class="absolute top-0 left-0 size-3.75 rounded-full border-2 border-ink/25 bg-paper md:relative md:mx-auto md:block" aria-hidden="true"></span>
+          <span class="absolute top-3.75 -bottom-10 left-1.75 border-l border-dashed border-ink/20 md:hidden" aria-hidden="true"></span>
+          <p class="text-[.78rem] font-medium tracking-[.08em] text-ink-soft uppercase md:mt-5">Now</p>
+          <p class="mx-auto mt-2 max-w-[30ch] text-pretty text-ink-soft">Nothing changes while you're with your agent. Amber only pays attention in projects that have a <code>.claude/CLAUDE.md</code>.</p>
+        </li>
+        <li class="relative pl-9 md:pl-0 md:text-center">
+          <span class="absolute top-0 left-0 size-3.75 rounded-full border-2 border-honey bg-paper md:relative md:mx-auto md:block" aria-hidden="true"></span>
+          <span class="absolute top-3.75 -bottom-10 left-1.75 border-l border-dashed border-ink/20 md:hidden" aria-hidden="true"></span>
+          <p class="text-[.78rem] font-medium tracking-[.08em] text-ink-soft uppercase md:mt-5">After 10 quiet minutes</p>
+          <p class="mx-auto mt-2 max-w-[30ch] text-pretty text-ink-soft">Claude Sonnet reads the part of the conversation it hasn't seen yet, in the background, on your own Claude account.</p>
+        </li>
+        <li class="relative pl-9 md:pl-0 md:text-center">
+          <span class="absolute top-0 left-0 size-3.75 rounded-full bg-moss ring-4 ring-moss-soft md:relative md:mx-auto md:block" aria-hidden="true"></span>
+          <p class="text-[.78rem] font-medium tracking-[.08em] text-ink-soft uppercase md:mt-5">Whenever you like</p>
+          <p class="mx-auto mt-2 max-w-[30ch] text-pretty text-ink-soft">Up to three suggestions, often none. Type <code>/review-suggestions</code> in Claude Code.</p>
+        </li>
+      </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- You stay in charge: the suggestion, with the review layered over it -->
+  <section class="px-5 pt-[clamp(140px,18vw,220px)] md:px-8">
+    <div class="mx-auto max-w-250">
+      <h2 class="mx-auto max-w-[24ch] text-center section-title">It suggests. It <em class="text-moss">never</em> writes.</h2>
+      <p class="mx-auto mt-5 max-w-[46ch] text-center text-pretty text-ink-soft">Every suggestion is a plain file in your repo, with the moment it came from. Keep what helps, reject what doesn't, and it won't ask again.</p>
+
+      <div class="reveal relative mt-16 lg:mt-20 lg:pb-16">
+        <div class="overflow-hidden rounded-xl bg-card shadow-float lg:w-[62%]">
+          <div class="window-bar border-b border-rule">
+            <span class="window-dot bg-rule"></span><span class="window-dot bg-rule"></span><span class="window-dot bg-rule"></span>
+            <span class="flex-1 pr-12 text-center font-mono text-[.7rem] text-ink-faint">.claude-suggestions/use-pnpm.md</span>
+          </div>
+          <div class="px-6 pt-6 pb-7 md:px-8 md:pt-7 md:pb-8">
+<pre class="mb-6 font-mono text-[.76rem] leading-[1.7] text-ink-faint">---
+file: .claude/CLAUDE.md
+session: 3f2a9c10-7b1e-4d2a-9c55…
+created: 2026-10-23T19:36:08Z
+---</pre>
+          <div class="mb-2 item-title">Use pnpm instead of npm</div>
+          <p class="mb-6 text-[.96rem] text-ink-soft">You corrected the agent: <em class="font-display text-ink">"No, we use pnpm here. Never npm."</em> And package.json declares <code>"packageManager": "pnpm@9.12.0"</code>.</p>
+<pre class="overflow-hidden rounded-lg bg-paper px-4 py-3.5 font-mono text-[.76rem] leading-[1.75] whitespace-pre-wrap text-ink-soft"><span class="text-ink-faint">--- a/.claude/CLAUDE.md
++++ b/.claude/CLAUDE.md
+@@ -3,4 +3,4 @@</span>
+ ## Commands
+<span class="-mx-4 block bg-rust-soft px-4">-- Run the tests with `npm test`.</span><span class="-mx-4 block bg-moss-soft px-4 text-ink">+- Run the tests with `pnpm test`.</span>  - Build with `make build`.</pre>
+          </div>
+        </div>
+
+        <div class="mt-6 flex flex-col gap-3 lg:absolute lg:right-0 lg:bottom-0 lg:mt-0 lg:w-[44%]">
+          <div class="max-w-[90%] self-end rounded-[20px] rounded-br-md bg-ink px-4 py-3 text-[.95rem] text-paper shadow-lift"><span class="sr-only">You: </span><code class="bg-transparent p-0 text-paper">/review-suggestions</code></div>
+          <div class="max-w-[90%] self-start rounded-[20px] rounded-bl-md bg-card px-4 py-3 text-[.95rem] shadow-sheet ring-1 ring-rule"><span class="sr-only">Claude: </span>Two suggestions:<ol class="my-1.5 list-decimal pl-5"><li>Use pnpm instead of npm</li><li>No JSDoc comments</li></ol>Which should I apply?</div>
+          <div class="max-w-[90%] self-end rounded-[20px] rounded-br-md bg-ink px-4 py-3 text-[.95rem] text-paper shadow-lift"><span class="sr-only">You: </span>1, yes. 2, no: public functions do get JSDoc.</div>
+          <div class="max-w-[90%] self-start rounded-[20px] rounded-bl-md bg-card px-4 py-3 text-[.95rem] shadow-sheet ring-1 ring-rule"><span class="sr-only">Claude: </span>Done. I set 2 aside with your reason, so I won't suggest anything like it again.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it runs: what it needs, what it costs, what leaves your machine -->
+  <section class="px-5 pt-[clamp(140px,18vw,220px)] md:px-8">
+    <div class="mx-auto max-w-170 text-center">
+      <h2 class="mx-auto max-w-[18ch] section-title">No magic. Just Rex and <em class="text-moss">your Claude.</em></h2>
+      <div class="reveal mt-14 space-y-11 text-left md:mt-16">
+        <div>
+          <p class="item-title">It runs inside Rex</p>
+          <p class="mt-2 text-pretty text-ink-soft">Rex knows what every terminal pane is doing, including when Claude Code is working and when it's waiting for you. Amber is a small script for Rex that listens to those signals.</p>
+        </div>
+        <div>
+          <p class="item-title">It reviews with your Claude</p>
+          <p class="mt-2 text-pretty text-ink-soft">Each review runs Claude Code in the background, with Claude Sonnet by default, on your own account. It counts toward your plan or API usage like any other session. To keep that small, it only runs after ten quiet minutes, and only reads what's new.</p>
+        </div>
+        <div>
+          <p class="item-title">You know what it sends</p>
+          <p class="mt-2 text-pretty text-ink-soft">The new part of the conversation, Claude's own notes about the project, and the files it checks in your repo go to Claude, through your <code>claude</code>, the same way your sessions do. Every suggestion stays in your repo.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install: the same resin stage, the commands in a terminal, and Rex's command palette -->
+  <section class="px-3 pt-[clamp(140px,18vw,220px)] md:px-8">
+    <div id="install" class="relative mx-auto max-w-280 scroll-mt-6 overflow-hidden rounded-[28px] resin-bg px-4 pt-[clamp(64px,9vw,104px)] pb-[clamp(56px,8vw,96px)] md:rounded-[40px]">
+      <canvas class="resin absolute inset-0 size-full" aria-hidden="true"></canvas>
+      <div class="relative text-center">
+        <h2 class="mx-auto max-w-[16ch] font-display text-[clamp(2.3rem,1.5rem+3vw,3.9rem)] leading-[1.02] font-medium tracking-[-.035em] text-balance">Teach your agent <em class="text-moss">once</em>, not every morning.</h2>
+        <p class="mx-auto mt-5 max-w-[42ch] text-pretty text-ink-soft">Amber lives in <a class="font-medium text-ink underline decoration-ink/25 underline-offset-[3px] hover:text-rust" href="https://www.superlogical.com/rex" target="_blank" rel="noopener">Rex</a>'s config folder. Three commands, nothing hidden.</p>
+      </div>
+
+      <div class="relative mx-auto mt-12 max-w-190 md:mt-14 md:pb-24">
+        <!-- Terminal with the install commands -->
+        <div class="cmd overflow-hidden rounded-xl bg-terminal text-left shadow-window md:w-[86%]">
+          <div class="window-bar pr-2">
+            <span class="window-dot bg-[#ff5f57]"></span><span class="window-dot bg-[#febc2e]"></span><span class="window-dot bg-[#28c840]"></span>
+            <span class="flex-1 text-center font-sans text-[.72rem] text-white/45">~ — Rex</span>
+            <button type="button" class="copy w-19 cursor-pointer rounded-md bg-white/10 py-1.5 text-center font-sans text-[.72rem] leading-none font-medium text-white/80 transition-colors hover:bg-white/20 [&.done]:bg-[oklch(52%_.11_140)] [&.done]:text-white">Copy</button>
+            <span class="sr-only" role="status"></span>
+          </div>
+<pre class="px-5 pt-2 pb-5 font-mono text-[.78rem] leading-[1.95] whitespace-pre-wrap text-white/85 wrap-anywhere md:text-[.82rem]"><span class="text-white/60"># download it next to Rex's config</span>
+<span class="text-white/60">$</span> git clone https://github.com/benhid/rex-amber ~/.config/rex/amber
+<span class="text-white/60"># load it</span>
+<span class="text-white/60">$</span> echo 'require("amber.action")' &gt;&gt; ~/.config/rex/init.lua
+<span class="text-white/60">$</span> rex config reload</pre>
+        </div>
+
+        <!-- Rex's command palette: the last step -->
+        <p class="sr-only">Then run Enable Amber from Rex's command palette.</p>
+        <div aria-hidden="true" class="relative mx-auto -mt-3 w-[94%] rounded-[14px] bg-white p-2 text-left font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Text',system-ui,sans-serif] text-[#1d1d1f] shadow-[0_40px_80px_-24px_oklch(30%_.08_50/.5),0_0_0_1px_oklch(0%_0_0/.1)] md:absolute md:right-0 md:bottom-0 md:mt-0 md:w-[58%]">
+          <div class="flex items-center gap-2 rounded-lg bg-[#f2f2f4] px-2.5 py-2 text-[.9rem]">
+            <svg class="size-3.75 flex-none text-[#1d1d1f]" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.8"/><path d="m11 11 3.5 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            <span>enable<span class="ml-px inline-block h-[1.05em] w-px translate-y-[3px] bg-[#1d1d1f]"></span></span>
+          </div>
+          <div class="mt-1.5 flex items-center justify-between rounded-lg bg-[#2f6fe4] px-2.5 py-1.75 text-[.9rem] text-white">
+            <span>Enable Amber</span>
+          </div>
+          <div class="mt-1.5 flex items-center justify-end gap-4 border-t border-black/7 px-1 pt-2 pb-0.5 text-[.72rem] text-[#86868b]">
+            <span class="flex items-center gap-1.5">Change Keybinding <kbd class="rounded bg-[#f2f2f4] px-1 font-sans text-[.68rem] text-[#6e6e73]">⌘↩</kbd></span>
+            <span class="flex items-center gap-1.5">Action <kbd class="rounded bg-[#f2f2f4] px-1 font-sans text-[.68rem] text-[#6e6e73]">↩</kbd></span>
+          </div>
+        </div>
+      </div>
+
+      <p class="relative mt-10 text-center text-[.95rem] text-pretty text-ink md:mt-12">It learns in any project with a <code class="bg-card/80">.claude/CLAUDE.md</code>.</p>
+    </div>
+  </section>
+
+</main>
+
+<footer class="relative z-10 overflow-hidden px-5 pt-[clamp(96px,12vw,140px)] md:px-8">
+  <div class="mx-auto flex max-w-280 flex-col gap-8 md:flex-row md:items-end md:justify-between">
+    <div>
+      <p class="font-display text-[1.7rem] leading-none font-medium tracking-[-.03em] italic">amber</p>
+      <p class="mt-3 text-[.95rem] text-ink-soft">A <a class="font-medium whitespace-nowrap text-ink no-underline hover:text-rust" href="https://www.superlogical.com/rex" target="_blank" rel="noopener"><img class="mr-1.25 inline-block size-3.75 rounded-sm align-[-0.16em] ring-1 ring-rule" src="rex.png" alt="" width="16" height="16">Rex</a> extension for Claude Code.</p>
+    </div>
+    <nav class="flex flex-wrap gap-x-8 gap-y-2 text-[.95rem] [&_a]:text-ink-soft [&_a]:no-underline [&_a]:transition-colors [&_a:hover]:text-ink" aria-label="Footer">
+      <a href="#how">How it works</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/benhid/rex-amber" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>
+    </nav>
+  </div>
+  <div class="mx-auto mt-10 flex max-w-280 flex-wrap justify-between gap-4 text-[.8rem] text-ink-faint">
+    <span>© 2026 <a class="text-ink-faint underline decoration-ink/25 underline-offset-[3px] transition-colors hover:text-rust" href="https://benhid.com" target="_blank" rel="noopener">benhid</a></span>
+    <span>Not affiliated with Anthropic or Superlogical.</span>
+  </div>
+  <p class="pointer-events-none mt-6 mb-[-0.24em] text-center font-display text-[clamp(6rem,26vw,21rem)] leading-[.8] font-medium tracking-[-.05em] text-paper-deep italic select-none" aria-hidden="true">amber</p>
+</footer>
+
+<script src="amber.js"></script>
+</body>
+</html>

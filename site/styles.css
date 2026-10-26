@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+/* Design tokens. The page is light only. */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-rule: var(--rule);
+  --color-moss: var(--moss);
+  --color-moss-soft: var(--moss-soft);
+  --color-rust: var(--rust);
+  --color-rust-soft: var(--rust-soft);
+  --color-honey: var(--honey);
+  --color-terminal: oklch(20% .012 60);
+
+  --font-display: "Erode", Georgia, serif;
+  --font-sans: "Instrument Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --font-hand: "Nanum Pen Script", "Bradley Hand", cursive;
+
+  --ease-out-expo: cubic-bezier(.16, 1, .3, 1);
+  --shadow-sheet: 0 1px 1px oklch(40% .03 70 / .04), 0 2px 6px -2px oklch(40% .03 70 / .06), 0 32px 64px -40px oklch(40% .05 70 / .28);
+  --shadow-lift: 0 1px 0 oklch(80% .03 80), 0 18px 40px -24px oklch(40% .05 70 / .45);
+  /* Mock windows: the terminal sits further back than the documents in front of it. */
+  --shadow-window: 0 30px 60px -20px oklch(30% .08 50 / .55), 0 0 0 1px oklch(0% 0 0 / .25);
+  --shadow-float: 0 40px 80px -24px oklch(30% .08 50 / .5), 0 0 0 1px oklch(30% .05 60 / .12);
+}
+
+:root {
+  --paper: oklch(98.4% .013 84);
+  --paper-deep: oklch(95.8% .022 82);
+  --card: oklch(99.7% .004 85);
+  --ink: oklch(20% .012 60);
+  --ink-soft: oklch(45% .014 65);
+  --ink-faint: oklch(52% .014 70);
+  --rule: oklch(91.5% .014 80);
+  --moss: oklch(50% .1 140);
+  --moss-soft: oklch(93.5% .045 135);
+  --rust: oklch(56% .15 40);
+  --rust-soft: oklch(93.5% .04 50);
+  --honey: oklch(76% .14 78);
+  color-scheme: light;
+}
+
+@layer base {
+  /* No elastic bounce past the top or bottom (Safari, iOS). Vertical only, so
+     the trackpad's back and forward swipe keeps working. */
+  html, body { overscroll-behavior-y: none; }
+  body {
+    @apply bg-paper font-sans text-[17px] leading-relaxed text-ink antialiased;
+  }
+  /* Paper grain */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: .22;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.38 0 0 0 0 0.25 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  ::selection { background: color-mix(in oklch, var(--honey) 35%, transparent); }
+  code { @apply rounded-[5px] bg-paper-deep px-[.38em] py-[.08em] font-mono text-[.86em]; }
+}
+
+/* The amber behind the mock windows, before (or without) the resin shader. */
+@utility resin-bg {
+  background: radial-gradient(120% 90% at 30% 20%, oklch(93% .08 85), oklch(82% .13 70) 45%, oklch(66% .15 52));
+}
+
+/* Title bar of a mock window: three dots and a centered title. */
+@utility window-bar {
+  @apply flex h-9 items-center gap-2 px-3.5;
+}
+@utility window-dot {
+  @apply size-2.75 rounded-full;
+}
+
+/* Section headings and their smaller siblings. */
+@utility section-title {
+  @apply font-display text-[clamp(2.1rem,1.4rem+2.4vw,3.4rem)] leading-[1.03] font-medium tracking-[-.03em] text-balance;
+}
+@utility item-title {
+  @apply font-display text-[1.45rem] leading-tight font-medium tracking-[-.015em];
+}
+
+@layer components {
+  /* Hidden starting states only apply when JavaScript runs, so without it the
+     page shows everything. They come first so the
+     play and drawn states below override them. */
+  .js .reveal { opacity: 0; translate: 0 22px; transition: opacity .9s var(--ease-out-expo), translate .9s var(--ease-out-expo); }
+  .js .reveal.in { opacity: 1; translate: 0 0; }
+  .js .pencil { stroke-dashoffset: 1; opacity: 0; }
+  .js .write { clip-path: inset(-20% 100% -20% 0); }
+
+  /* Pencil marks, drawn once the marked-up CLAUDE.md scrolls into view. */
+  .mark { position: relative; display: inline-block; }
+  .mark > svg { position: absolute; overflow: visible; pointer-events: none; }
+  .strike > svg { left: -3px; top: 50%; width: calc(100% + 6px); height: 12px; translate: 0 -40%; }
+  /* The gap is twice the path so the pattern never wraps: with dash == gap, Safari stops painting the stroke once the animation ends. */
+  .pencil { fill: none; stroke: var(--rust); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1 2; }
+  .play .pencil { animation: stroke .7s var(--ease-out-expo) both; }
+  .play .write { animation: write .9s var(--ease-out-expo) forwards; }
+  .drawn .pencil { animation: none !important; stroke-dashoffset: 0; opacity: 1; }
+  .drawn .write { animation: none !important; clip-path: none; }
+
+  /* Lines and margin notes of the marked-up CLAUDE.md. */
+  .d-li { position: relative; padding-left: 20px; font-size: .95rem; line-height: 2.35; color: var(--ink-soft); }
+  .d-li::before { content: "–"; position: absolute; left: 0; color: var(--ink-faint); }
+  .d-li.new::before { content: "+"; color: var(--moss); font-weight: 600; }
+  .d-li code { color: var(--ink); }
+  .note { font-family: var(--font-hand); font-size: 1.3rem; line-height: 1; color: var(--rust); }
+  @media (max-width: 767px) {
+    .note { margin: -4px 0 12px 20px; }
+    /* the drawn strike can't follow a wrapped line, so narrow screens get a plain one */
+    #m2 > svg { display: none; }
+    #m2 { display: inline; text-decoration: line-through; text-decoration-color: var(--rust); text-decoration-thickness: 2px; }
+  }
+
+}
+
+@keyframes stroke { 0% { stroke-dashoffset: 1; opacity: 0; } 1% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 1; } }
+@keyframes write { to { clip-path: inset(-20% -5% -20% 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .js .reveal { opacity: 1; translate: 0 0; }
+  .js .pencil { stroke-dashoffset: 0; opacity: 1; }
+  .js .write { clip-path: none; }
+}
